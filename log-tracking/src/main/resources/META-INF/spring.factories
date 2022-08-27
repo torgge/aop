@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+br.gb.tech.infrastructure.configurations.LogTrackingProperties
