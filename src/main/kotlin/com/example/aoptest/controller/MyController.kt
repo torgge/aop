@@ -1,16 +1,15 @@
 package com.example.aoptest.controller
 
 import br.gb.tech.domain.annotations.OperationLog
-import br.gb.tech.domain.log.OmsLog
-import br.gb.tech.domain.log.OmsObjectType
+import br.gb.tech.domain.log.*
+import com.example.aoptest.domain.MyClassToLog
 import com.example.aoptest.service.MyService
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
+import java.util.*
 
 @RestController
 @RequestMapping("/demo")
@@ -19,9 +18,25 @@ class MyController(
 ) {
 
     @PostMapping("/hello")
-    @OperationLog("CONTROLLER", "DEF", OmsObjectType.IN)
-    fun sayHello(@RequestBody body: OmsLog): ResponseEntity<OmsLog> {
-        val response = this.service.doAny(value = body)
+    @OperationLog(
+        OmsProcessType.PEDIDO_ABASTECIMENTO,
+        OmsProcessingNode.OMS,
+        OmsProcessingAction.METHOD,
+        OmsLogLevel.INFO,
+        OmsObjectType.IN,
+        "com.example.aoptest.domain.MyClassToLog",
+        "Log Method IN from CONTROLLER"
+    )
+    fun sayHello(
+        @RequestHeader headers: HttpHeaders?,
+        @RequestBody body: MyClassToLog
+    ): ResponseEntity<MyClassToLog> {
+        val props = mapOf<String, Any>(
+            "correlationId" to headers?.get("correlationId").toString(),
+            "uuid" to UUID.randomUUID().toString()
+        )
+
+        val response = this.service.doAny(value = body, props)
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }

@@ -1,8 +1,8 @@
 package com.example.aoptest.service
 
 import br.gb.tech.domain.annotations.OperationLog
-import br.gb.tech.domain.log.OmsLog
-import br.gb.tech.domain.log.OmsObjectType
+import br.gb.tech.domain.log.*
+import com.example.aoptest.domain.MyClassToLog
 import org.springframework.stereotype.Service
 import javax.annotation.PostConstruct
 
@@ -14,6 +14,14 @@ class MyService {
         println("Service was started")
     }
 
-    @OperationLog("SERVICE", "DEF", OmsObjectType.IN)
-    fun doAny(value: OmsLog): OmsLog = value
+    @OperationLog(
+        OmsProcessType.PEDIDO_ABASTECIMENTO,
+        OmsProcessingNode.OMS,
+        OmsProcessingAction.METHOD,
+        OmsLogLevel.INFO,
+        OmsObjectType.IN,
+        "com.example.aoptest.domain.MyClassToLog",
+        "Log Method IN from SERVICE"
+    )
+    fun doAny(value: MyClassToLog, props: Map<String, Any>): MyClassToLog = value
 }

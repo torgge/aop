@@ -26,6 +26,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.springframework.boot:spring-boot-starter-aop:2.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     implementation(project(":log-tracking"))
 }
