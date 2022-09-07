@@ -3,10 +3,7 @@ package br.gb.tech.domain.aspect
 import br.gb.tech.domain.annotations.OperationLog
 import br.gb.tech.domain.log.OmsLog
 import br.gb.tech.domain.log.OmsLoggerService
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
@@ -15,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.lang.reflect.Modifier
 import java.util.*
+import kotlin.collections.LinkedHashMap
 
 @Aspect
 @Component
@@ -45,27 +43,40 @@ class OperationLogAspect(
 
         println("Method args values:")
         Arrays.stream(joinPoint.args)
-            .forEach { o -> System.out.println("arg value: $o") }
+            .forEach { o -> println("arg value: $o") }
 
         // Additional Information
         println("returning type: " + signature.returnType)
-        System.out.println("method modifier: " + Modifier.toString(signature.modifiers))
+        println("method modifier: " + Modifier.toString(signature.modifiers))
         Arrays.stream(signature.exceptionTypes)
             .forEach { aClass -> println("exception type: $aClass") }
 
         // Method annotation
-        System.out.println("operationLog annotation: $operationLog")
+        println("operationLog annotation: $operationLog")
 
-        // Garante parametro do tipo serializable
+        // Garante parametro do tipo de objecto para instancia
         if (signature.parameterTypes[0].typeName.equals(operationLog.typeName)) {
-            val type: Class<*> = Class.forName(operationLog.typeName)
-            val v = type.cast(joinPoint.args[0])
-            val str = format.encodeToString(v)
-            val instance: JsonObject = format.decodeFromString(str)
+//            val type: Class<*> = Class.forName(operationLog.typeName)
+//            val v = type.cast(joinPoint.args[0])
+//            val str = format.encodeToString(v)
+//            val instance: JsonObject = format.decodeFromString(str)
+
+            var uuid = ""
+            var instanceId = ""
+
+            Arrays.stream(joinPoint.args).forEach {
+                if (it is LinkedHashMap<*, *>) {
+                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString() else ""
+                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString() else ""
+                }
+            }
+
+            val instance = joinPoint.args[0]
+
             omsLoggerService.printLogSuccess(
                 OmsLog(
-                    requestCid = "",
-                    processCid = "",
+                    requestId = instanceId,
+                    processId = uuid,
                     processType = operationLog.processType,
                     processingNode = operationLog.processingNode,
                     processingAction = operationLog.processingAction,
@@ -73,7 +84,7 @@ class OperationLogAspect(
                     message = operationLog.message,
                     type = null,
                     instanceHash = null,
-                    instance = instance
+                    instance = instance?.toString()
                 )
             )
         }
