@@ -1,10 +1,13 @@
 package br.gb.tech.domain.aspect
 
-import br.gb.tech.domain.annotations.OperationLog
+import br.gb.tech.domain.annotations.LogTracking
 import br.gb.tech.domain.log.OmsLog
+import br.gb.tech.domain.log.OmsLogLevel
 import br.gb.tech.domain.log.OmsLoggerService
 import kotlinx.serialization.json.Json
+import org.aspectj.lang.JoinPoint
 import org.aspectj.lang.ProceedingJoinPoint
+import org.aspectj.lang.annotation.AfterThrowing
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
 import org.aspectj.lang.reflect.MethodSignature
@@ -12,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.lang.reflect.Modifier
 import java.util.*
-import kotlin.collections.LinkedHashMap
 
 @Aspect
 @Component
@@ -21,8 +23,57 @@ class OperationLogAspect(
 ) {
     val format = Json { encodeDefaults = true; prettyPrint = true }
 
-    @Around("@annotation(operationLog)")
-    fun aroundExecute(joinPoint: ProceedingJoinPoint, operationLog: OperationLog): Any? {
+    @AfterThrowing("@annotation(logTracking)", throwing = "exception")
+    fun doAfterThrowing(joinPoint: JoinPoint, logTracking: LogTracking, exception: Exception) {
+        println("===============AfterThrowing Pointcut start execution......===============")
+        val signature = joinPoint.signature as MethodSignature
+        val map: Map<String, Any?> = mapOf(
+            "title" to logTracking.message,
+            "exceptionMsg" to exception.message,
+            "method" to signature.method.name + "." + joinPoint.signature.name
+        )
+
+        println(map)
+        println("===============AfterThrowing Pointcut execution is complete.===============")
+
+        if (signature.parameterTypes[0].typeName.equals(logTracking.typeName)) {
+            var uuid = ""
+            var instanceId = ""
+
+            Arrays.stream(joinPoint.args).forEach {
+                if (it is LinkedHashMap<*, *>) {
+                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString() else ""
+                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString() else ""
+                }
+                if (it is String && signature.parameterNames[1] == "correlationId") {
+                    uuid = it
+                }
+                if (it is String && signature.parameterNames[1] == "instanceId") {
+                    instanceId = it
+                }
+            }
+
+            val instance = joinPoint.args[0]
+
+            omsLoggerService.printLogSuccess(
+                OmsLog(
+                    requestId = instanceId,
+                    processId = uuid,
+                    processType = logTracking.processType,
+                    processingNode = logTracking.processingNode,
+                    processingAction = logTracking.processingAction,
+                    logLevel = OmsLogLevel.ERROR,
+                    message = logTracking.message,
+                    type = null,
+                    instanceHash = null,
+                    instance = instance?.toString()
+                )
+            )
+        }
+    }
+
+    @Around("@annotation(logTracking)")
+    fun doAround(joinPoint: ProceedingJoinPoint, logTracking: LogTracking): Any? {
         val proceed: Any = joinPoint.proceed()
 
         // Method Information
@@ -52,10 +103,10 @@ class OperationLogAspect(
             .forEach { aClass -> println("exception type: $aClass") }
 
         // Method annotation
-        println("operationLog annotation: $operationLog")
+        println("operationLog annotation: $logTracking")
 
         // Garante parametro do tipo de objecto para instancia
-        if (signature.parameterTypes[0].typeName.equals(operationLog.typeName)) {
+        if (signature.parameterTypes[0].typeName.equals(logTracking.typeName)) {
 //            val type: Class<*> = Class.forName(operationLog.typeName)
 //            val v = type.cast(joinPoint.args[0])
 //            val str = format.encodeToString(v)
@@ -66,8 +117,14 @@ class OperationLogAspect(
 
             Arrays.stream(joinPoint.args).forEach {
                 if (it is LinkedHashMap<*, *>) {
-                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString() else ""
-                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString() else ""
+                    uuid = if (it.containsKey("correlationId")) it["correlationId"] as String else ""
+                    instanceId = if (it.containsKey("instanceId")) it["instanceId"] as String else ""
+                }
+                if (it is String && signature.parameterNames[1] == "correlationId") {
+                    uuid = it
+                }
+                if (it is String && signature.parameterNames[1] == "instanceId") {
+                    instanceId = it
                 }
             }
 
@@ -77,11 +134,11 @@ class OperationLogAspect(
                 OmsLog(
                     requestId = instanceId,
                     processId = uuid,
-                    processType = operationLog.processType,
-                    processingNode = operationLog.processingNode,
-                    processingAction = operationLog.processingAction,
-                    logLevel = operationLog.logLevel,
-                    message = operationLog.message,
+                    processType = logTracking.processType,
+                    processingNode = logTracking.processingNode,
+                    processingAction = logTracking.processingAction,
+                    logLevel = OmsLogLevel.INFO,
+                    message = logTracking.message,
                     type = null,
                     instanceHash = null,
                     instance = instance?.toString()

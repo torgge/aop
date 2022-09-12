@@ -1,6 +1,6 @@
 package com.example.aoptest.controller
 
-import br.gb.tech.domain.annotations.OperationLog
+import br.gb.tech.domain.annotations.LogTracking
 import br.gb.tech.domain.log.*
 import com.example.aoptest.domain.MyClassToLog
 import com.example.aoptest.service.MyService
@@ -18,11 +18,10 @@ class MyController(
 ) {
 
     @PostMapping("/hello")
-    @OperationLog(
+    @LogTracking(
         OmsProcessType.PEDIDO_ABASTECIMENTO,
         OmsProcessingNode.OMS,
         OmsProcessingAction.METHOD,
-        OmsLogLevel.INFO,
         OmsObjectType.IN,
         "com.example.aoptest.domain.MyClassToLog",
         "Log Method IN from CONTROLLER"
@@ -31,6 +30,34 @@ class MyController(
         @RequestHeader headers: HttpHeaders?,
         @RequestBody body: MyClassToLog
     ): ResponseEntity<MyClassToLog> {
+        val props = getHeaders(headers)
+
+        val response = this.service.doAny(value = body, props)
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+
+    @PostMapping("/throw")
+    @LogTracking(
+        OmsProcessType.PEDIDO_ABASTECIMENTO,
+        OmsProcessingNode.OMS,
+        OmsProcessingAction.METHOD,
+        OmsObjectType.IN,
+        "com.example.aoptest.domain.MyClassToLog",
+        "Log Method IN from CONTROLLER"
+    )
+    fun throwOnHello(
+        @RequestHeader headers: HttpHeaders?,
+        @RequestBody body: MyClassToLog
+    ): ResponseEntity<MyClassToLog> {
+        val props = getHeaders(headers)
+
+        val response = this.service.throwAny(value = body, props["correlationId"].toString())
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+
+    private fun getHeaders(headers: HttpHeaders?): Map<String, Any> {
         var props = mapOf<String, Any>()
 
         if (headers != null) props = mapOf<String, Any>(
@@ -38,8 +65,6 @@ class MyController(
             "instanceId" to if (headers.containsKey("instanceId")) headers["instanceId"].toString() else UUID.randomUUID().toString()
         )
 
-        val response = this.service.doAny(value = body, props)
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+        return props
     }
 }
