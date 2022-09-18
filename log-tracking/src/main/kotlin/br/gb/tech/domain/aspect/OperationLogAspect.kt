@@ -1,9 +1,7 @@
 package br.gb.tech.domain.aspect
 
 import br.gb.tech.domain.annotations.LogTracking
-import br.gb.tech.domain.log.OmsLog
-import br.gb.tech.domain.log.OmsLogLevel
-import br.gb.tech.domain.log.OmsLoggerService
+import br.gb.tech.domain.log.*
 import kotlinx.serialization.json.Json
 import org.aspectj.lang.JoinPoint
 import org.aspectj.lang.ProceedingJoinPoint
@@ -39,16 +37,21 @@ class OperationLogAspect(
         if (signature.parameterTypes[0].typeName.equals(logTracking.typeName)) {
             var uuid = ""
             var instanceId = ""
+            var processType = OmsProcessType.NAO_DEFINIDO.toString()
 
             Arrays.stream(joinPoint.args).forEach {
                 if (it is LinkedHashMap<*, *>) {
-                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString() else ""
-                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString() else ""
+                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString().replace("[", "").replace("]", "") else ""
+                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString().replace("[", "").replace("]", "") else ""
+                    processType = if (it.containsKey("processType")) it["processType"].toString().replace("[", "").replace("]", "") else processType
                 }
                 if (it is String && signature.parameterNames[1] == "correlationId") {
                     uuid = it
                 }
                 if (it is String && signature.parameterNames[1] == "instanceId") {
+                    instanceId = it
+                }
+                if (it is String && signature.parameterNames[1] == "processType") {
                     instanceId = it
                 }
             }
@@ -59,13 +62,13 @@ class OperationLogAspect(
                 OmsLog(
                     requestId = instanceId,
                     processId = uuid,
-                    processType = logTracking.processType,
+                    processType = OmsProcessType.valueOf(processType),
                     processingNode = logTracking.processingNode,
                     processingAction = logTracking.processingAction,
                     logLevel = OmsLogLevel.ERROR,
                     message = logTracking.message,
-                    type = null,
-                    instanceHash = null,
+                    type = logTracking.typeName,
+                    instanceHash = instance?.hashCode().toString(),
                     instance = instance?.toString()
                 )
             )
@@ -107,23 +110,23 @@ class OperationLogAspect(
 
         // Garante parametro do tipo de objecto para instancia
         if (signature.parameterTypes[0].typeName.equals(logTracking.typeName)) {
-//            val type: Class<*> = Class.forName(operationLog.typeName)
-//            val v = type.cast(joinPoint.args[0])
-//            val str = format.encodeToString(v)
-//            val instance: JsonObject = format.decodeFromString(str)
-
             var uuid = ""
             var instanceId = ""
+            var processType = OmsProcessType.NAO_DEFINIDO.toString()
 
             Arrays.stream(joinPoint.args).forEach {
                 if (it is LinkedHashMap<*, *>) {
-                    uuid = if (it.containsKey("correlationId")) it["correlationId"] as String else ""
-                    instanceId = if (it.containsKey("instanceId")) it["instanceId"] as String else ""
+                    uuid = if (it.containsKey("correlationId")) it["correlationId"].toString().replace("[", "").replace("]", "") else ""
+                    instanceId = if (it.containsKey("instanceId")) it["instanceId"].toString().replace("[", "").replace("]", "") else ""
+                    processType = if (it.containsKey("processType")) it["processType"].toString().replace("[", "").replace("]", "") else processType
                 }
                 if (it is String && signature.parameterNames[1] == "correlationId") {
                     uuid = it
                 }
                 if (it is String && signature.parameterNames[1] == "instanceId") {
+                    instanceId = it
+                }
+                if (it is String && signature.parameterNames[1] == "processType") {
                     instanceId = it
                 }
             }
@@ -134,17 +137,60 @@ class OperationLogAspect(
                 OmsLog(
                     requestId = instanceId,
                     processId = uuid,
-                    processType = logTracking.processType,
+                    processType = enumValues<OmsProcessType>().find { it.value == processType } ?: OmsProcessType.NAO_DEFINIDO,
                     processingNode = logTracking.processingNode,
                     processingAction = logTracking.processingAction,
                     logLevel = OmsLogLevel.INFO,
                     message = logTracking.message,
-                    type = null,
-                    instanceHash = null,
-                    instance = instance?.toString()
+                    type = logTracking.typeName,
+                    instanceHash = when (logTracking.logType) {
+                        OmsObjectType.IN -> instance?.hashCode()
+                        OmsObjectType.OUT -> proceed.hashCode()
+                        else -> instance?.hashCode()
+                    }.toString(),
+                    instance = when (logTracking.logType) {
+                        OmsObjectType.IN -> instance?.toString()
+                        OmsObjectType.OUT -> proceed.toString()
+                        else -> instance?.toString()
+                    }
                 )
             )
+
+            if (logTracking.logType == OmsObjectType.IN_N_OUT) {
+                omsLoggerService.printLogSuccess(
+                    OmsLog(
+                        requestId = instanceId,
+                        processId = uuid,
+                        processType = enumValues<OmsProcessType>().find { it.value == processType } ?: OmsProcessType.NAO_DEFINIDO,
+                        processingNode = logTracking.processingNode,
+                        processingAction = logTracking.processingAction,
+                        logLevel = OmsLogLevel.INFO,
+                        message = logTracking.message,
+                        type = logTracking.typeName,
+                        instanceHash = proceed.hashCode().toString(),
+                        instance = proceed.toString()
+                    )
+                )
+            }
         }
+        return proceed
+    }
+}
+
+// println("===============Around Pointcut start execution......===============")
+// val map: MutableMap<String, Any> = HashMap()
+// map["LogType"] = operationLog.logType.name
+// map["method"] =
+// joinPoint::getTarget::name.get() + "." + joinPoint.signature.name
+// println(map)
+// println("---------Around Pre notification execution completed in-------")
+// val proceed: Any = joinPoint.proceed()
+// println("---------Around Return result of target method in:$proceed")
+// println("---------Around Target method execution completed in-------")
+// println("This is a post notification...")
+// println("---------Around Post notification execution completed-------")
+// println("===============Around Pointcut execution is complete.===============")
+// return proceed
 
 //        val requestCid: String,
 //        val processCid: String,
@@ -191,22 +237,3 @@ class OperationLogAspect(
 //                content = Json.decodeFromString(Json.encodeToString(firstParam))
 //            )
 //        )
-
-        return proceed
-    }
-}
-
-// println("===============Around Pointcut start execution......===============")
-// val map: MutableMap<String, Any> = HashMap()
-// map["LogType"] = operationLog.logType.name
-// map["method"] =
-// joinPoint::getTarget::name.get() + "." + joinPoint.signature.name
-// println(map)
-// println("---------Around Pre notification execution completed in-------")
-// val proceed: Any = joinPoint.proceed()
-// println("---------Around Return result of target method in:$proceed")
-// println("---------Around Target method execution completed in-------")
-// println("This is a post notification...")
-// println("---------Around Post notification execution completed-------")
-// println("===============Around Pointcut execution is complete.===============")
-// return proceed

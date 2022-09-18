@@ -7,7 +7,6 @@ import kotlin.annotation.AnnotationTarget.FUNCTION
 @Target(FUNCTION)
 @Retention(RUNTIME)
 annotation class LogTracking(
-    val processType: OmsProcessType,
     val processingNode: OmsProcessingNode,
     val processingAction: OmsProcessingAction,
     val logType: OmsObjectType,

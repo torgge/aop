@@ -15,20 +15,18 @@ class MyService {
     }
 
     @LogTracking(
-        OmsProcessType.PEDIDO_ABASTECIMENTO,
         OmsProcessingNode.OMS,
         OmsProcessingAction.METHOD,
-        OmsObjectType.IN,
+        OmsObjectType.OUT,
         "com.example.aoptest.domain.MyClassToLog",
         "Log Method IN from SERVICE"
     )
     fun doAny(value: MyClassToLog, props: Map<String, Any>): MyClassToLog = value
 
     @LogTracking(
-        OmsProcessType.PEDIDO_ABASTECIMENTO,
         OmsProcessingNode.OMS,
         OmsProcessingAction.METHOD,
-        OmsObjectType.IN,
+        OmsObjectType.IN_N_OUT,
         "com.example.aoptest.domain.MyClassToLog",
         "Must throw this method"
     )

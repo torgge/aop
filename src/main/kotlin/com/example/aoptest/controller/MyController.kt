@@ -19,7 +19,6 @@ class MyController(
 
     @PostMapping("/hello")
     @LogTracking(
-        OmsProcessType.PEDIDO_ABASTECIMENTO,
         OmsProcessingNode.OMS,
         OmsProcessingAction.METHOD,
         OmsObjectType.IN,
@@ -39,7 +38,6 @@ class MyController(
 
     @PostMapping("/throw")
     @LogTracking(
-        OmsProcessType.PEDIDO_ABASTECIMENTO,
         OmsProcessingNode.OMS,
         OmsProcessingAction.METHOD,
         OmsObjectType.IN,
@@ -62,7 +60,8 @@ class MyController(
 
         if (headers != null) props = mapOf<String, Any>(
             "correlationId" to if (headers.containsKey("correlationId")) headers["correlationId"].toString() else UUID.randomUUID().toString(),
-            "instanceId" to if (headers.containsKey("instanceId")) headers["instanceId"].toString() else UUID.randomUUID().toString()
+            "instanceId" to if (headers.containsKey("instanceId")) headers["instanceId"].toString() else UUID.randomUUID().toString(),
+            "processType" to if (headers.containsKey("processType")) headers["processType"].toString() else OmsProcessType.NAO_DEFINIDO.toString()
         )
 
         return props
